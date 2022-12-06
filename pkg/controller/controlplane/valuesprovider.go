@@ -37,7 +37,6 @@ import (
 	kutil "github.com/gardener/gardener/pkg/utils/kubernetes"
 	secretutils "github.com/gardener/gardener/pkg/utils/secrets"
 	secretsmanager "github.com/gardener/gardener/pkg/utils/secrets/manager"
-	"github.com/gardener/gardener/pkg/utils/version"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -346,16 +345,11 @@ func (vp *valuesProvider) GetControlPlaneShootChartValues(
 func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 	_ context.Context,
 	_ *extensionsv1alpha1.ControlPlane,
-	cluster *extensionscontroller.Cluster,
+	_ *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
-	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
-	if err != nil {
-		return nil, err
-	}
-
 	return map[string]interface{}{
 		"volumesnapshots": map[string]interface{}{
-			"enabled": csiEnabled,
+			"enabled": true,
 		},
 	}, nil
 }
@@ -364,13 +358,8 @@ func (vp *valuesProvider) GetControlPlaneShootCRDsChartValues(
 func (vp *valuesProvider) GetStorageClassesChartValues(
 	_ context.Context,
 	cp *extensionsv1alpha1.ControlPlane,
-	cluster *extensionscontroller.Cluster,
+	_ *extensionscontroller.Cluster,
 ) (map[string]interface{}, error) {
-	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
-	if err != nil {
-		return nil, err
-	}
-
 	managedDefaultClass := true
 
 	if cp.Spec.ProviderConfig != nil {
@@ -389,8 +378,7 @@ func (vp *valuesProvider) GetStorageClassesChartValues(
 	}
 
 	return map[string]interface{}{
-		"useLegacyProvisioner": !csiEnabled,
-		"managedDefaultClass":  managedDefaultClass,
+		"managedDefaultClass": managedDefaultClass,
 	}, nil
 }
 
@@ -558,15 +546,6 @@ func getCSIControllerChartValues(
 	checksums map[string]string,
 	scaledDown bool,
 ) (map[string]interface{}, error) {
-	csiEnabled, err := version.CompareVersions(cluster.Shoot.Spec.Kubernetes.Version, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
-	if err != nil {
-		return nil, err
-	}
-
-	if !csiEnabled {
-		return map[string]interface{}{"enabled": false}, nil
-	}
-
 	serverSecret, found := secretsReader.Get(csiSnapshotValidationServerName)
 	if !found {
 		return nil, fmt.Errorf("secret %q not found", csiSnapshotValidationServerName)
@@ -599,10 +578,6 @@ func getControlPlaneShootChartValues(
 	secretsReader secretsmanager.Reader,
 ) (map[string]interface{}, error) {
 	kubernetesVersion := cluster.Shoot.Spec.Kubernetes.Version
-	csiEnabled, err := version.CompareVersions(kubernetesVersion, ">=", aws.GetCSIMigrationKubernetesVersion(cluster))
-	if err != nil {
-		return nil, err
-	}
 
 	caSecret, found := secretsReader.Get(caNameControlPlane)
 	if !found {
@@ -614,7 +589,7 @@ func getControlPlaneShootChartValues(
 		*cpConfig.CloudControllerManager.UseCustomRouteController
 
 	csiDriverNodeValues := map[string]interface{}{
-		"enabled":           csiEnabled,
+		"enabled":           true,
 		"kubernetesVersion": kubernetesVersion,
 		"vpaEnabled":        gardencorev1beta1helper.ShootWantsVerticalPodAutoscaler(cluster.Shoot),
 		"webhookConfig": map[string]interface{}{
