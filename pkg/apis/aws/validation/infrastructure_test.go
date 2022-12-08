@@ -572,6 +572,31 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				})),
 			))
 		})
+		
+		It("should allow adding a zone but fail if zone.Name already exists", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones = append(newInfrastructureConfig.Networks.Zones, newInfrastructureConfig.Networks.Zones[0])
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("networks.zones[0].name"),
+			}))))
+		})
+
+		It("should not allow adding 2 zones with identical zone.Name", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones = append(newInfrastructureConfig.Networks.Zones, awsZone2)
+			newInfrastructureConfig.Networks.Zones = append(newInfrastructureConfig.Networks.Zones, awsZone2)
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(ConsistOf(PointTo(MatchFields(IgnoreExtras, Fields{
+				"Type":  Equal(field.ErrorTypeForbidden),
+				"Field": Equal("networks.zones[2].name"),
+			}))))
+		})
 	})
 
 	Describe("#ValidateIgnoreTags", func() {
