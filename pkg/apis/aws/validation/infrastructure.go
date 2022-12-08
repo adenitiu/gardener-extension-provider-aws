@@ -191,6 +191,24 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks.zones"), "removing zones is not allowed"))
 		return allErrs
 	}
+	
+	if len(newZones) > len(oldZones) {
+		addedZones := sets.NewString()
+		for i, addedZone := range newZones[len(oldZones):] {
+			if addedZones.Has(addedZone.Name) {
+				idxPath := field.NewPath("networks.zones").Index(len(oldZones) + i)
+				allErrs = append(allErrs, field.Forbidden(idxPath.Child("name"), "adding duplicate zone name is not allowed"))
+			}
+			addedZones.Insert(addedZone.Name)
+		}
+
+		for i, oldZone := range oldZones {
+			if addedZones.Has(oldZone.Name) {
+				idxPath := field.NewPath("networks.zones").Index(i)
+				allErrs = append(allErrs, field.Forbidden(idxPath.Child("name"), "adding duplicate zone name is not allowed"))
+			}
+		}
+	}
 
 	for i, oldZone := range oldZones {
 		idxPath := field.NewPath("networks.zones").Index(i)
