@@ -205,13 +205,14 @@ func (s *shoot) validateShootCreation(ctx context.Context, shoot *core.Shoot) er
 		return err
 	}
 
-	if err := s.validateAgainstCloudProfile(ctx, shoot, nil, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
+	if err := s.validateCreationAgainstCloudProfile(ctx, shoot, infraConfig, fldPath.Child("infrastructureConfig")); err != nil {
 		return err
 	}
 
 	return s.validateShoot(ctx, shoot)
 }
 
+// keep this function only for the validateShootUpdate case
 func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, oldInfraConfig, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
 	cloudProfile := &gardencorev1beta1.CloudProfile{}
 	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
@@ -219,6 +220,20 @@ func (s *shoot) validateAgainstCloudProfile(ctx context.Context, shoot *core.Sho
 	}
 
 	if errList := awsvalidation.ValidateInfrastructureConfigAgainstCloudProfile(oldInfraConfig, infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
+		return errList.ToAggregate()
+	}
+
+	return nil
+}
+
+// create a new function only for the validateShootCreation case
+func (s *shoot) validateCreationAgainstCloudProfile(ctx context.Context, shoot *core.Shoot, infraConfig *api.InfrastructureConfig, fldPath *field.Path) error {
+	cloudProfile := &gardencorev1beta1.CloudProfile{}
+	if err := s.client.Get(ctx, kutil.Key(shoot.Spec.CloudProfileName), cloudProfile); err != nil {
+		return err
+	}
+
+	if errList := awsvalidation.ValidateInfrastructureCreationConfigAgainstCloudProfile(infraConfig, shoot, cloudProfile, fldPath); len(errList) != 0 {
 		return errList.ToAggregate()
 	}
 

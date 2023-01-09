@@ -69,6 +69,34 @@ func validateInfrastructureConfigZones(oldInfra, infra *apisaws.InfrastructureCo
 	return allErrs
 }
 
+func ValidateInfrastructureCreationConfigAgainstCloudProfile(infra *apisaws.InfrastructureConfig, shoot *core.Shoot, cloudProfile *gardencorev1beta1.CloudProfile, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	shootRegion := shoot.Spec.Region
+	for _, region := range cloudProfile.Spec.Regions {
+		if region.Name == shootRegion {
+			allErrs = append(allErrs, validateInfrastructureCreationConfigZones(infra, region.Zones, fldPath.Child("network"))...)
+			break
+		}
+	}
+
+	return allErrs
+}
+
+func validateInfrastructureCreationConfigZones(infra *apisaws.InfrastructureConfig, zones []gardencorev1beta1.AvailabilityZone, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	awsZones := sets.NewString()
+	for _, awsZone := range zones {
+		if !awsZones.Has(awsZone.Name) {
+			allErrs = append(allErrs, field.NotSupported(fldPath.Child("name"), awsZone.Name, awsZones.UnsortedList()))
+		}
+		awsZones.Insert(awsZone.Name)
+	}
+
+	return allErrs
+}
+
 // ValidateInfrastructureConfig validates a InfrastructureConfig object.
 func ValidateInfrastructureConfig(infra *apisaws.InfrastructureConfig, nodesCIDR, podsCIDR, servicesCIDR *string) field.ErrorList {
 	allErrs := field.ErrorList{}
@@ -191,7 +219,7 @@ func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisaws.Infrastruc
 		allErrs = append(allErrs, field.Forbidden(field.NewPath("networks.zones"), "removing zones is not allowed"))
 		return allErrs
 	}
-	
+
 	if len(newZones) > len(oldZones) {
 		addedZones := sets.NewString()
 		for i, addedZone := range newZones[len(oldZones):] {
