@@ -88,8 +88,8 @@ func validateInfrastructureCreationConfigZones(infra *apisaws.InfrastructureConf
 
 	awsZones := sets.NewString()
 	for _, awsZone := range zones {
-		if !awsZones.Has(awsZone.Name) {
-			allErrs = append(allErrs, field.NotSupported(fldPath.Child("name"), awsZone.Name, awsZones.UnsortedList()))
+		if awsZones.Has(awsZone.Name) {
+			allErrs = append(allErrs, field.Forbidden(fldPath.Child("name"), "adding duplicate zone name is not allowed"))
 		}
 		awsZones.Insert(awsZone.Name)
 	}
