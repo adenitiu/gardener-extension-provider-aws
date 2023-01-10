@@ -86,12 +86,15 @@ func ValidateInfrastructureCreationConfigAgainstCloudProfile(infra *apisaws.Infr
 func validateInfrastructureCreationConfigZones(infra *apisaws.InfrastructureConfig, zones []gardencorev1beta1.AvailabilityZone, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
-	awsZones := sets.NewString()
-	for _, awsZone := range zones {
-		if awsZones.Has(awsZone.Name) {
-			allErrs = append(allErrs, field.Forbidden(fldPath.Child("name"), "adding duplicate zone name is not allowed"))
+	networksPath := field.NewPath("networks")
+
+	validatedZones := sets.NewString()
+	for i, zone := range infra.Networks.Zones {
+		zonePath := networksPath.Child("zones").Index(i)
+		if validatedZones.Has(zone.Name) {
+			allErrs = append(allErrs, field.Invalid(zonePath.Child("name"), zone.Name, "each zone may only be specified once"))
 		}
-		awsZones.Insert(awsZone.Name)
+		validatedZones.Insert(zone.Name)
 	}
 
 	return allErrs
